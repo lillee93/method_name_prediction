@@ -1,0 +1,8 @@
+venv/
+.venv/
+.venv312/
+env/
+qwen_methodname_finetune/
+# repos/
+# qwen2.5-Coder-0.5B/
+__pycache__/
