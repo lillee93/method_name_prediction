@@ -213,7 +213,50 @@ def main():
             f"({stats_wrong['none'] / tw * 100:.2f}%)"
         )
         print()
+        
+    # compare true vs false-only subtokens in method body for WRONG predictions
+    if wrong:
+        more_false_than_true = 0
+        more_true_than_false = 0
+        equal_or_zero = 0
 
+        for r in wrong:
+            body = r.get("method_body", "")
+            body_lower = body.lower()
+
+            true_tokens = [t.lower() for t in split_camel_and_underscore(r["true_name"])]
+            pred_tokens = [t.lower() for t in split_camel_and_underscore(r["pred_name"])]
+
+            true_token_set = set(true_tokens)
+            pred_token_set = set(pred_tokens)
+
+            false_only_tokens = [t for t in pred_token_set if t and t not in true_token_set]
+
+            true_occurrences = sum(body_lower.count(tok) for tok in true_token_set if tok)
+            false_occurrences = sum(body_lower.count(tok) for tok in false_only_tokens)
+
+            if false_occurrences > true_occurrences:
+                more_false_than_true += 1
+            elif true_occurrences > false_occurrences:
+                more_true_than_false += 1
+            else:
+                equal_or_zero += 1
+
+        total_wrong = len(wrong)
+        print("For WRONG predictions: comparison of subtoken occurrences in method body")
+        print(
+            f"  more FALSE-only subtokens than TRUE subtokens: "
+            f"{more_false_than_true} ({more_false_than_true / total_wrong * 100:.2f}%)"
+        )
+        print(
+            f"  more TRUE subtokens than FALSE-only subtokens: "
+            f"{more_true_than_false} ({more_true_than_false / total_wrong * 100:.2f}%)"
+        )
+        print(
+            f"  equal or both zero: "
+            f"{equal_or_zero} ({equal_or_zero / total_wrong * 100:.2f}%)"
+        )
+        print()
 
 if __name__ == "__main__":
     main()
