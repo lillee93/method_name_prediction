@@ -1,7 +1,7 @@
 import argparse
 import json
 
-from utils import split_camel_and_underscore, name_similarity
+from utils import split_camel_and_underscore, name_similarity, are_wordnet_synonyms
 
 
 def main():
@@ -92,7 +92,7 @@ def main():
         print(f"  {key}: {acc:.2f}%  ({stats['total']} examples)")
     print()
 
-    # For wrong predictions, measure how close they are
+    # For wrong predictions, measure how close they are + WordNet-based semantics
     if wrong:
         wrong_with_sim = []
         for r in wrong:
@@ -103,7 +103,9 @@ def main():
         avg_sim = sum(r["similarity"] for r in wrong_with_sim) / len(wrong_with_sim)
         print(f"Average similarity for wrong predictions (0–1): {avg_sim:.3f}\n")
 
-        wrong_sorted_high = sorted(wrong_with_sim, key=lambda x: x["similarity"], reverse=True)
+        wrong_sorted_high = sorted(
+            wrong_with_sim, key=lambda x: x["similarity"], reverse=True
+        )
         wrong_sorted_low = sorted(wrong_with_sim, key=lambda x: x["similarity"])
 
         print("Top 5 near-miss wrong predictions (high similarity):")
@@ -124,6 +126,89 @@ def main():
             )
         print("-" * 80)
         print()
+
+        # Semantic-style breakdown for WRONG predictions using WordNet (treat all subtokens symmetrically)
+        def find_synonym_pair(true_tokens_set, pred_tokens_set):
+            for t in true_tokens_set:
+                for p in pred_tokens_set:
+                    if are_wordnet_synonyms(t, p):
+                        return t, p
+            return None, None
+
+        synonym_like = 0
+        ambiguous_like = 0
+        other_wrong_semantic = 0
+        synonym_examples = []
+
+        for r in wrong_with_sim:
+            true_tokens = split_camel_and_underscore(r["true_name"])
+            pred_tokens = split_camel_and_underscore(r["pred_name"])
+
+            true_tokens_lower = [t.lower() for t in true_tokens]
+            pred_tokens_lower = [t.lower() for t in pred_tokens]
+
+            if not true_tokens_lower or not pred_tokens_lower:
+                other_wrong_semantic += 1
+                continue
+
+            true_set = set(true_tokens_lower)
+            pred_set = set(pred_tokens_lower)
+
+            common_exact = true_set.intersection(pred_set)
+            min_len = max(1, min(len(true_set), len(pred_set)))
+            overlap_ratio = len(common_exact) / min_len
+
+            full_sim = r["similarity"]
+
+            syn_t, syn_p = find_synonym_pair(true_set, pred_set)
+            has_synonyms = syn_t is not None
+
+            if full_sim >= 0.7 and overlap_ratio >= 0.5 and has_synonyms:
+                synonym_like += 1
+                if len(synonym_examples) < 5:
+                    synonym_examples.append(
+                        {
+                            "true_name": r["true_name"],
+                            "pred_name": r["pred_name"],
+                            "syn_pair": (syn_t, syn_p),
+                            "similarity": full_sim,
+                        }
+                    )
+                continue
+
+            if full_sim >= 0.7 and overlap_ratio >= 0.5:
+                ambiguous_like += 1
+            else:
+                other_wrong_semantic += 1
+
+        total_wrong_semantic = synonym_like + ambiguous_like + other_wrong_semantic
+        if total_wrong_semantic > 0:
+            print(
+                "Semantic-style breakdown for WRONG predictions (WordNet, symmetric subtokens):"
+            )
+            print(
+                f"  synonym-like (high similarity, overlap, and some WordNet synonym subtokens): "
+                f"{synonym_like} ({synonym_like / total_wrong_semantic * 100:.2f}%)"
+            )
+            print(
+                f"  ambiguous-like (high similarity and overlap, but no synonym pair): "
+                f"{ambiguous_like} ({ambiguous_like / total_wrong_semantic * 100:.2f}%)"
+            )
+            print(
+                f"  other wrong cases: "
+                f"{other_wrong_semantic} ({other_wrong_semantic / total_wrong_semantic * 100:.2f}%)"
+            )
+            print()
+
+            if synonym_examples:
+                print("Example synonym-like WRONG predictions (WordNet):")
+                print("-" * 80)
+                for ex in synonym_examples:
+                    print(
+                        f"True: {ex['true_name']}  | Pred: {ex['pred_name']}  "
+                    )
+                print("-" * 80)
+                print()
 
     # Subtokens of true name appearing in method body
     count_all_present = 0
@@ -213,12 +298,17 @@ def main():
             f"({stats_wrong['none'] / tw * 100:.2f}%)"
         )
         print()
-        
-    # compare true vs false-only subtokens in method body for WRONG predictions
+
+    # compare true vs false-only subtokens in method body for WRONG predictions + token order patterns
     if wrong:
         more_false_than_true = 0
         more_true_than_false = 0
         equal_or_zero = 0
+
+        same_tokens_diff_order = 0
+        true_subset_pred = 0
+        pred_subset_true = 0
+        mixed_or_disjoint = 0
 
         for r in wrong:
             body = r.get("method_body", "")
@@ -230,10 +320,15 @@ def main():
             true_token_set = set(true_tokens)
             pred_token_set = set(pred_tokens)
 
+            # token frequency comparison
             false_only_tokens = [t for t in pred_token_set if t and t not in true_token_set]
 
-            true_occurrences = sum(body_lower.count(tok) for tok in true_token_set if tok)
-            false_occurrences = sum(body_lower.count(tok) for tok in false_only_tokens)
+            true_occurrences = sum(
+                body_lower.count(tok) for tok in true_token_set if tok
+            )
+            false_occurrences = sum(
+                body_lower.count(tok) for tok in false_only_tokens
+            )
 
             if false_occurrences > true_occurrences:
                 more_false_than_true += 1
@@ -241,6 +336,17 @@ def main():
                 more_true_than_false += 1
             else:
                 equal_or_zero += 1
+
+            # token order / subset–superset patterns
+            if true_tokens and pred_tokens:
+                if sorted(true_tokens) == sorted(pred_tokens) and true_tokens != pred_tokens:
+                    same_tokens_diff_order += 1
+                elif true_token_set.issubset(pred_token_set) and true_token_set != pred_token_set:
+                    true_subset_pred += 1
+                elif pred_token_set.issubset(true_token_set) and pred_token_set != true_token_set:
+                    pred_subset_true += 1
+                else:
+                    mixed_or_disjoint += 1
 
         total_wrong = len(wrong)
         print("For WRONG predictions: comparison of subtoken occurrences in method body")
@@ -257,6 +363,26 @@ def main():
             f"{equal_or_zero} ({equal_or_zero / total_wrong * 100:.2f}%)"
         )
         print()
+
+        print("For WRONG predictions: token order and subset/superset patterns")
+        print(
+            f"  same tokens but different order: "
+            f"{same_tokens_diff_order} ({same_tokens_diff_order / total_wrong * 100:.2f}%)"
+        )
+        print(
+            f"  TRUE tokens subset of PRED tokens (over-specified prediction): "
+            f"{true_subset_pred} ({true_subset_pred / total_wrong * 100:.2f}%)"
+        )
+        print(
+            f"  PRED tokens subset of TRUE tokens (under-specified prediction): "
+            f"{pred_subset_true} ({pred_subset_true / total_wrong * 100:.2f}%)"
+        )
+        print(
+            f"  mixed / disjoint token sets: "
+            f"{mixed_or_disjoint} ({mixed_or_disjoint / total_wrong * 100:.2f}%)"
+        )
+        print()
+
 
 if __name__ == "__main__":
     main()

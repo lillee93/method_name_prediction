@@ -1,7 +1,8 @@
 import json
 import javalang
 import re
-
+import nltk
+from nltk.corpus import wordnet as wn
 def extract_methods_from_file(file_path):
     methods = []
     try:
@@ -103,6 +104,16 @@ def show_fim_debug_examples(train_pairs, num_examples, tokenizer):
     if shown == 0:
         print("No valid FIM examples to show (method name not found in code).")
 
+def load_predictions(path):
+    records = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            records.append(json.loads(line))
+    return records
+    
 def save_prediction_results(results, path: str):
     with open(path, "w", encoding="utf-8") as f:
         for item in results:
@@ -151,3 +162,29 @@ def name_similarity(true_name, predicted_name):
         return 1.0
 
     return 1.0 - distance / longest_length
+
+
+def are_wordnet_synonyms(word1, word2):
+    """
+    Use WordNet to approximate whether two words are synonyms.
+    No handcrafted lists; we just look at overlapping lemma names.
+    """
+    if not word1 or not word2:
+        return False
+
+    word1 = word1.lower()
+    word2 = word2.lower()
+
+    if word1 == word2:
+        return True
+
+    synsets1 = wn.synsets(word1)
+    synsets2 = wn.synsets(word2)
+
+    if not synsets1 or not synsets2:
+        return False
+
+    lemmas1 = {lemma.name().lower() for syn in synsets1 for lemma in syn.lemmas()}
+    lemmas2 = {lemma.name().lower() for syn in synsets2 for lemma in syn.lemmas()}
+
+    return len(lemmas1.intersection(lemmas2)) > 0

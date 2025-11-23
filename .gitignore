@@ -1,6 +1,6 @@
 venv/
 .venv/
-.venv312/
+.venv11/
 env/
 qwen_methodname_finetune1/
 # repos/

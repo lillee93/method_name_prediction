@@ -106,7 +106,7 @@ def main():
         output_dir=output_dir,
         per_device_train_batch_size=1,   
         gradient_accumulation_steps=4,
-        num_train_epochs=1,              
+        num_train_epochs=3,              
         learning_rate=5e-5,
         weight_decay=0.01, 
         warmup_ratio=0.05,  
@@ -127,7 +127,7 @@ def main():
         data_collator=default_data_collator,
     )
 
-    print("Start training (this can be slow on CPU)…")
+    print("Start training...")
     trainer.train()
     print("Training done.")
 
