@@ -1,7 +1,7 @@
 import argparse
 import json
 
-from utils import load_predictions
+from utils import load_prediction_records
 
 
 def main():
@@ -25,8 +25,8 @@ def main():
     )
     args = parser.parse_args()
 
-    old_records = load_predictions(args.old_predictions)
-    new_records = load_predictions(args.new_predictions)
+    old_records = load_prediction_records(args.old_predictions)
+    new_records = load_prediction_records(args.new_predictions)
 
     if len(old_records) != len(new_records):
         print(

@@ -48,4 +48,8 @@ python evaluate.py \
   --test-file test_dataset.jsonl \
   --predictions-file predictions.jsonl
 
+Run analyze_prediction, you need:
+pip install nltk
+python -c "import nltk; nltk.download('wordnet')"
+
 python analyze_prediction.py --predictions-file predictions.jsonl
