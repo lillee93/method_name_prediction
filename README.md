@@ -12,6 +12,9 @@ pip install -r requirements.txt
 You also need the base model folder:
 ./qwen2.5-Coder-0.5B (downloaded from Hugging Face and placed in the project root)
 
+Alternatively, you can let Hugging Face / Transformers download it automatically by using the original model name from the hub, for example running the scripts with
+--model-dir unsloth/Qwen2.5-Coder-0.5B
+
 Files
 
 clone_repos.py – clone top N GitHub repos from a CSV (results.csv from SEART)
@@ -24,7 +27,9 @@ trainer.py – fine-tune Qwen2.5-Coder with FIM on the training set
 
 evaluate.py – run inference on the test set and report exact-match accuracy
 
-analyze_prediction.py analyze the model’s prediction results to understand where it performs well or poorly by reporting accuracy, similarity between true and predicted method names, and whether the true-name subtokens appear in the method body. 
+analyze_prediction.py - analyze the model’s prediction results to understand where it performs well or poorly by reporting accuracy, similarity between true and predicted method names, and whether the true-name subtokens appear in the method body. 
+
+compare_predictions.py - compare two prediction result files and find the cases where the previous model was wrong but the new model is correct.
 
 Usage
 
@@ -53,3 +58,5 @@ pip install nltk
 python -c "import nltk; nltk.download('wordnet')"
 
 python analyze_prediction.py --predictions-file predictions.jsonl
+
+python compare_predictions.py --old-predictions predictions.jsonl  --new-predictions predictions3.jsonl  --output-file improved_methods.jsonl
