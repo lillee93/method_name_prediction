@@ -45,7 +45,6 @@ def main():
         old_correct = bool(old_rec.get("is_correct", False))
         new_correct = bool(new_rec.get("is_correct", False))
 
-        # we only care about cases that flipped from wrong -> correct
         if (not old_correct) and new_correct:
             improved.append({
                 "true_name": new_rec.get("true_name"),
@@ -55,14 +54,12 @@ def main():
 
     print(f"Found {len(improved)} methods that were previously wrong and are now correct.\n")
 
-    # Print a few examples to the terminal
     for ex in improved[:100]:
         print("=" * 80)
         print("True name:", ex["true_name"])
         print("Old prediction:", ex["old_pred"])
         print("New prediction:", ex["new_pred"])
 
-    # Save all improved cases to file
     with open(args.output_file, "w", encoding="utf-8") as f:
         for ex in improved:
             f.write(json.dumps(ex, ensure_ascii=False) + "\n")

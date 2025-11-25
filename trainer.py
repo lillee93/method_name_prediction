@@ -77,6 +77,7 @@ def main():
         try:
             middle_index = input_ids.index(FIM_MIDDLE_ID)
         except ValueError:
+            # print(code)
             skipped += 1
             continue
 

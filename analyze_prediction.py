@@ -68,6 +68,7 @@ def main():
     body_len_stats = compute_method_body_length_stats(prediction_records)
     if body_len_stats is not None:
         print("Method body length statistics (in approximate code tokens):")
+
         print(
             "  min: {0}, max: {1}, average: {2:.2f}, cut points: <= {3}, {4}–{5}, > {6}".format(
                 body_len_stats["min_length"],
@@ -105,7 +106,9 @@ def main():
 
     # Accuracy by number of subtokens in the true name
     subtoken_buckets = group_accuracy_by_subtoken_count(prediction_records)
+
     print("Accuracy by number of subtokens in true name:")
+
     for bucket_label, counts in subtoken_buckets.items():
         bucket_total = counts["total"]
         bucket_wrong = counts["wrong"]
@@ -116,59 +119,71 @@ def main():
     print()
 
     # Coverage of true-name subtokens in method body
-    overall_coverage, coverage_correct, coverage_wrong = compute_true_name_subtoken_coverage(
-        prediction_records
-    )
+    overall_coverage, coverage_correct, coverage_wrong = compute_true_name_subtoken_coverage(prediction_records)
 
     print("Subtoken coverage of TRUE name in method body (all examples):")
+
     print(
         f"  all subtokens appear:  {overall_coverage['all']} "
         f"({overall_coverage['all'] / total_examples * 100:.2f}%)"
     )
+
     print(
         f"  some subtokens appear: {overall_coverage['any']} "
         f"({overall_coverage['any'] / total_examples * 100:.2f}%)"
     )
+
     print(
         f"  no subtokens appear:   {overall_coverage['none']} "
         f"({overall_coverage['none'] / total_examples * 100:.2f}%)"
     )
+
     print()
 
     if coverage_correct["total"] > 0:
         total_correct_cov = coverage_correct["total"]
+
         print("For CORRECT predictions:")
         print(f"  total: {total_correct_cov}")
+
         print(
             f"  all subtokens appear:  {coverage_correct['all']} "
             f"({coverage_correct['all'] / total_correct_cov * 100:.2f}%)"
         )
+
         print(
             f"  some subtokens appear: {coverage_correct['any']} "
             f"({coverage_correct['any'] / total_correct_cov * 100:.2f}%)"
         )
+
         print(
             f"  no subtokens appear:   {coverage_correct['none']} "
             f"({coverage_correct['none'] / total_correct_cov * 100:.2f}%)"
         )
+
         print()
 
     if coverage_wrong["total"] > 0:
         total_wrong_cov = coverage_wrong["total"]
+
         print("For WRONG predictions:")
         print(f"  total: {total_wrong_cov}")
+
         print(
             f"  all subtokens appear:  {coverage_wrong['all']} "
             f"({coverage_wrong['all'] / total_wrong_cov * 100:.2f}%)"
         )
+
         print(
             f"  some subtokens appear: {coverage_wrong['any']} "
             f"({coverage_wrong['any'] / total_wrong_cov * 100:.2f}%)"
         )
+
         print(
             f"  no subtokens appear:   {coverage_wrong['none']} "
             f"({coverage_wrong['none'] / total_wrong_cov * 100:.2f}%)"
         )
+
         print()
 
     # Wrong prediction analysis
@@ -179,6 +194,7 @@ def main():
     case_stats = compute_case_only_capitalization_stats(wrong_predictions)
     if case_stats is not None:
         print("Case-only wrong predictions (capitalization differences only):")
+
         print(
             "  {0} ({1:.2f}% of all wrong predictions)".format(
                 case_stats["case_only_count"],
@@ -187,9 +203,8 @@ def main():
         )
     print()
 
-    wrong_with_similarity = attach_similarity_scores_to_wrong_predictions(
-        wrong_predictions
-    )
+    wrong_with_similarity = attach_similarity_scores_to_wrong_predictions(wrong_predictions)
+
     average_similarity = (
         sum(record["similarity"] for record in wrong_with_similarity)
         / len(wrong_with_similarity)
@@ -233,12 +248,8 @@ def main():
     print()
 
     # WordNet-based semantic breakdown
-    (
-        synonym_like_count,
-        ambiguous_like_count,
-        other_wrong_count,
-        synonym_examples,
-    ) = classify_wrong_predictions_with_wordnet(wrong_with_similarity)
+    synonym_like_count, ambiguous_like_count, other_wrong_count, synonym_examples = classify_wrong_predictions_with_wordnet(wrong_with_similarity)
+
     total_semantic_cases = (
         synonym_like_count + ambiguous_like_count + other_wrong_count
     )
@@ -246,26 +257,31 @@ def main():
     if total_semantic_cases > 0:
         print(
             "Semantic-style breakdown for WRONG predictions "
-            "(WordNet, symmetric subtokens):"
+            "(symmetric subtokens):"
         )
+
         print(
             f"  synonym-like (high similarity, overlap, and some WordNet synonym subtokens): "
             f"{synonym_like_count} "
             f"({synonym_like_count / total_semantic_cases * 100:.2f}%)"
         )
+
         print(
             f"  ambiguous-like (high similarity and overlap, but no synonym pair): "
             f"{ambiguous_like_count} "
             f"({ambiguous_like_count / total_semantic_cases * 100:.2f}%)"
         )
+
         print(
             f"  other wrong cases: {other_wrong_count} "
             f"({other_wrong_count / total_semantic_cases * 100:.2f}%)"
         )
+
         print()
 
         if synonym_examples:
             print("Example synonym-like WRONG predictions (WordNet):")
+
             print("-" * 80)
             for example in synonym_examples:
                 print(
@@ -274,64 +290,66 @@ def main():
             print("-" * 80)
             print()
 
-    # Frequency comparison: true vs predicted-only subtokens in method body
-    more_false_only, more_true, equal_or_zero = compare_true_and_false_only_subtokens_in_body(
-        wrong_predictions
-    )
+    # Frequency comparison
+    more_false_only, more_true, equal_or_zero = compare_true_and_false_only_subtokens_in_body(wrong_predictions)
+
     print("For WRONG predictions: comparison of subtoken occurrences in method body")
+
     print(
         f"  more FALSE-only subtokens than TRUE subtokens: "
         f"{more_false_only} ({more_false_only / total_wrong * 100:.2f}%)"
     )
+
     print(
         f"  more TRUE subtokens than FALSE-only subtokens: "
         f"{more_true} ({more_true / total_wrong * 100:.2f}%)"
     )
+
     print(
         f"  equal or both zero: "
         f"{equal_or_zero} ({equal_or_zero / total_wrong * 100:.2f}%)"
     )
+    
     print()
 
-    # Token order / subset / superset patterns
-    (
-        same_tokens_different_order,
-        true_subset_predicted,
-        predicted_subset_true,
-        mixed_or_disjoint,
-    ) = analyze_token_order_and_subset_patterns(wrong_predictions)
+    same_tokens_different_order, true_subset_predicted, predicted_subset_true, mixed_or_disjoint = analyze_token_order_and_subset_patterns(wrong_predictions)
 
     print("For WRONG predictions: token order and subset/superset patterns")
+
     print(
         f"  same tokens but different order: "
         f"{same_tokens_different_order} "
         f"({same_tokens_different_order / total_wrong * 100:.2f}%)"
     )
+
     print(
         f"  TRUE tokens subset of PRED tokens (over-specified prediction): "
         f"{true_subset_predicted} "
         f"({true_subset_predicted / total_wrong * 100:.2f}%)"
     )
+
     print(
         f"  PRED tokens subset of TRUE tokens (under-specified prediction): "
         f"{predicted_subset_true} "
         f"({predicted_subset_true / total_wrong * 100:.2f}%)"
     )
+
     print(
         f"  mixed / disjoint token sets: "
         f"{mixed_or_disjoint} "
         f"({mixed_or_disjoint / total_wrong * 100:.2f}%)"
     )
+    
     print()
 
     # Totally wrong cases: no overlapping subtokens and no synonym pair
-    totally_wrong_count, totally_wrong_examples = classify_totally_wrong_predictions(
-        wrong_with_similarity
-    )
+    totally_wrong_count, totally_wrong_examples = classify_totally_wrong_predictions(wrong_with_similarity)
+
     if totally_wrong_count > 0:
         print(
             "Totally wrong predictions (no overlapping subtokens and no WordNet synonym pair):"
         )
+
         print(
             f"  count: {totally_wrong_count} "
             f"({totally_wrong_count / total_wrong * 100:.2f}% of all wrong predictions)"
@@ -344,11 +362,13 @@ def main():
             semantic_sim = semantic_similarity_wordnet(
                 example["true_name"], example["pred_name"]
             )
+
             print(
                 f"True: {example['true_name']}  | Pred: {example['pred_name']}  "
                 f"| string_sim = {example.get('similarity', 0.0):.3f}  "
                 f"| semantic_sim = {semantic_sim:.3f}"
             )
+
         print("-" * 80)
         print()
 
