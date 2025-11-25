@@ -10,7 +10,9 @@ from utils import (
     compare_true_and_false_only_subtokens_in_body,
     analyze_token_order_and_subset_patterns,
     classify_totally_wrong_predictions,
-    semantic_similarity_wordnet, 
+    semantic_similarity_wordnet,
+    compute_method_body_length_stats,
+    compute_case_only_capitalization_stats,
 )
 
 
@@ -61,6 +63,45 @@ def main():
             bucket_accuracy = (1.0 - bucket_wrong / bucket_total) * 100.0
         print(f"  {bucket_label}: {bucket_accuracy:.2f}%  ({bucket_total} examples)")
     print()
+
+    # Accuracy by method body length (code size, in tokens)
+    body_len_stats = compute_method_body_length_stats(prediction_records)
+    if body_len_stats is not None:
+        print("Method body length statistics (in approximate code tokens):")
+        print(
+            "  min: {0}, max: {1}, average: {2:.2f}, cut points: <= {3}, {4}–{5}, > {6}".format(
+                body_len_stats["min_length"],
+                body_len_stats["max_length"],
+                body_len_stats["average_length"],
+                body_len_stats["cut_short"],
+                body_len_stats["cut_short"] + 1,
+                body_len_stats["cut_medium"],
+                body_len_stats["cut_medium"],
+            )
+        )
+
+        print("\nAccuracy by method body length:")
+        for bucket_key in ["short", "medium", "long"]:
+            bucket_info = body_len_stats["buckets"][bucket_key]
+            total_bucket = bucket_info["total"]
+            correct_bucket = bucket_info["correct"]
+            wrong_bucket = total_bucket - correct_bucket
+
+            if total_bucket == 0:
+                accuracy_bucket = 0.0
+            else:
+                accuracy_bucket = (float(correct_bucket) / float(total_bucket)) * 100.0
+
+            print(
+                "  {0}: {1:.2f}%  ({2} correct, {3} wrong, {4} examples)".format(
+                    bucket_info["label"],
+                    accuracy_bucket,
+                    correct_bucket,
+                    wrong_bucket,
+                    total_bucket,
+                )
+            )
+        print()
 
     # Accuracy by number of subtokens in the true name
     subtoken_buckets = group_accuracy_by_subtoken_count(prediction_records)
@@ -134,6 +175,17 @@ def main():
     if not wrong_predictions:
         print("No wrong predictions to analyze further.")
         return
+
+    case_stats = compute_case_only_capitalization_stats(wrong_predictions)
+    if case_stats is not None:
+        print("Case-only wrong predictions (capitalization differences only):")
+        print(
+            "  {0} ({1:.2f}% of all wrong predictions)".format(
+                case_stats["case_only_count"],
+                case_stats["ratio"] * 100.0,
+            )
+        )
+    print()
 
     wrong_with_similarity = attach_similarity_scores_to_wrong_predictions(
         wrong_predictions

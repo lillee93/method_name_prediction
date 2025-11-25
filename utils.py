@@ -1,7 +1,6 @@
 import json
 import javalang
 import re
-import nltk
 from nltk.corpus import wordnet as wn
 
 def extract_methods_from_file(file_path):
@@ -412,10 +411,6 @@ def compare_true_and_false_only_subtokens_in_body(wrong_prediction_records):
 
 
 def analyze_token_order_and_subset_patterns(wrong_prediction_records):
-    """
-    For wrong predictions, classify token-level differences between true and predicted names
-    into four categories (order / subset / superset / mixed).
-    """
     same_tokens_different_order = 0
     true_subset_predicted = 0
     predicted_subset_true = 0
@@ -456,11 +451,6 @@ def analyze_token_order_and_subset_patterns(wrong_prediction_records):
 
 
 def classify_totally_wrong_predictions(wrong_records_with_similarity):
-    """
-    Identify 'totally wrong' cases among wrong predictions:
-    - no overlapping subtokens between true and predicted names
-    - no WordNet synonym pair between any true and predicted subtokens
-    """
     totally_wrong_count = 0
     totally_wrong_examples = []
 
@@ -499,10 +489,6 @@ def classify_totally_wrong_predictions(wrong_records_with_similarity):
     return totally_wrong_count, totally_wrong_examples
 
 def semantic_similarity_wordnet(true_name, predicted_name):
-    """
-    Compute semantic similarity between the true and predicted
-    method names
-    """
     true_tokens = [token.lower() for token in split_camel_and_underscore(true_name)]
     predicted_tokens = [
         token.lower() for token in split_camel_and_underscore(predicted_name)
@@ -541,3 +527,96 @@ def semantic_similarity_wordnet(true_name, predicted_name):
         return 0.0
 
     return sum(per_token_scores) / float(len(per_token_scores))
+
+
+def count_code_tokens(code_text):
+    if not code_text:
+        return 0
+
+    normalized = (
+        code_text
+        .replace(";", " ")
+        .replace("(", " ")
+        .replace(")", " ")
+    )
+    tokens = normalized.split()
+    return len(tokens)
+
+
+def compute_method_body_length_stats(prediction_records):
+    body_lengths = []
+    for record in prediction_records:
+        body = record.get("method_body", "")
+        body_lengths.append(count_code_tokens(body))
+
+    if not body_lengths:
+        return None
+
+    sorted_lengths = sorted(body_lengths)
+    n = len(sorted_lengths)
+
+    def get_quantile_value(q):
+        index = int(q * (n - 1))
+        return sorted_lengths[index]
+
+    cut_short = get_quantile_value(1.0 / 3.0)
+    cut_medium = get_quantile_value(2.0 / 3.0)
+
+    stats = {
+        "min_length": sorted_lengths[0],
+        "max_length": sorted_lengths[-1],
+        "average_length": float(sum(body_lengths)) / float(n),
+        "cut_short": cut_short,
+        "cut_medium": cut_medium,
+        "buckets": {
+            "short": {"label": None, "total": 0, "correct": 0},
+            "medium": {"label": None, "total": 0, "correct": 0},
+            "long": {"label": None, "total": 0, "correct": 0},
+        },
+    }
+
+    stats["buckets"]["short"]["label"] = "short bodies (<= {0} tokens)".format(cut_short)
+    stats["buckets"]["medium"]["label"] = "medium bodies ({0}–{1} tokens)".format(
+        cut_short + 1, cut_medium
+    )
+    stats["buckets"]["long"]["label"] = "long bodies (> {0} tokens)".format(cut_medium)
+
+    for record in prediction_records:
+        body = record.get("method_body", "")
+        body_len = count_code_tokens(body)
+
+        if body_len <= cut_short:
+            bucket_key = "short"
+        elif body_len <= cut_medium:
+            bucket_key = "medium"
+        else:
+            bucket_key = "long"
+
+        stats["buckets"][bucket_key]["total"] += 1
+        if record.get("is_correct", False):
+            stats["buckets"][bucket_key]["correct"] += 1
+
+    return stats
+
+def compute_case_only_capitalization_stats(wrong_records):
+    if not wrong_records:
+        return None
+
+    case_only_count = 0
+    for record in wrong_records:
+        true_name = record.get("true_name", "")
+        pred_name = record.get("pred_name", "")
+        if true_name.lower() == pred_name.lower():
+            case_only_count += 1
+
+    total_wrong = len(wrong_records)
+    if total_wrong > 0:
+        ratio = case_only_count / float(total_wrong)
+    else:
+        ratio = 0.0
+
+    return {
+        "total_wrong": total_wrong,
+        "case_only_count": case_only_count,
+        "ratio": ratio,
+    }
