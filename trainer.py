@@ -70,7 +70,7 @@ def main():
         prefix, suffix = result
         sequence = f"<|fim_prefix|>{prefix}<|fim_suffix|>{suffix}<|fim_middle|>{name}<|endoftext|>"
 
-        enc = tokenizer(sequence, truncation=True, max_length=512)
+        enc = tokenizer(sequence, truncation=True, max_length=1124)
         input_ids = enc["input_ids"]
         labels = input_ids.copy()
 
