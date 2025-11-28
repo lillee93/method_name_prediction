@@ -59,12 +59,10 @@ def main():
 
     # Build training sequences
     train_encodings = []
-    skipped = 0
 
     for code, name in train_pairs:
         result = split_code_prefix_suffix(code, name)
         if result is None:
-            skipped += 1
             continue
 
         prefix, suffix = result
@@ -78,7 +76,6 @@ def main():
             middle_index = input_ids.index(FIM_MIDDLE_ID)
         except ValueError:
             # print(code)
-            skipped += 1
             continue
 
         for i in range(0, middle_index + 1):
@@ -86,8 +83,6 @@ def main():
 
         train_encodings.append({"input_ids": input_ids, "labels": labels})
 
-    print(f"Prepared {len(train_encodings)} training sequences for FIM, skipped {skipped}.")
-    
     # Read training data
     train_dataset = Dataset.from_list(train_encodings)
 
