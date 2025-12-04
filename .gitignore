@@ -1,6 +1,7 @@
 venv/
 .venv/
 .venv11/
+.vscode
 env/
 qwen_methodname_finetune1/
 # repos/
